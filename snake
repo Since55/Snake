@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+    <head>
+      <meta charset="utf-8">
+      <title> Snake. The game </title>
+    </head>
+
+    <body>
+        <canvas id = "canvas" width = "500" height="500"> </canvas>
+        <script src = "https://code.jquery.com/jquery-2.1.0.js"></script>
+        <script>
+          var canvas = document.getElementById("canvas");
+          var ctx = canvas.getContext("2d");
+          var score = 0;
+          var width = canvas.width;
+          var height = canvas.height;
+          var blockSize = 10;
+          var widthInBlocks = width/blockSize;
+          var heightInBlocks = height/blockSize;
+
+          var directions = {
+            32: "stop",
+  					37: "left",
+  					38: "up",
+  					39: "right",
+  					40: "down"
+          }
+
+          //drawing simple circle function
+          function circle(x, y, radius){
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI*2, false);
+            ctx.fill();
+          }
+
+          // drawing and keeping the borders
+          function drawBorder(){
+            ctx.fillStyle = "DarkGreen";
+            ctx.fillRect(0, 0, width, blockSize);
+            ctx.fillRect(0, height - blockSize, width, blockSize);
+            ctx.fillRect(0, 0, blockSize, height);
+            ctx.fillRect(width - blockSize, 0, blockSize, height);
+          }
+
+          //drawing the actual score of the game
+          function drawScore(){
+            ctx.textBaseline = "top";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "Green";
+            ctx.font = "15px Courier";
+            ctx.fillText("Score: " + score, blockSize+1, blockSize+1);
+          }
+
+          //game over function, that has a bad news:/
+          function gameOver(){
+            clearInterval(intervalId);
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "Red";
+            ctx.font = "50px Courier";
+            ctx.fillText("Game Over!", width / 2, height / 2);
+          }
+
+          //block constructor, that's magic, don't touch!
+          function block(col, row){
+            this.col = col;
+            this.row = row;
+          }
+
+          //block square drawing prototype
+          block.prototype.drawSquare = function (color) {
+            var x = this.col * blockSize;
+            var y = this.row * blockSize;
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, blockSize, blockSize);
+          };
+
+          //filled circle block drawing prototype
+          block.prototype.drawCircle = function (color) {
+              var centerX = this.col * blockSize + blockSize/2;
+              var centerY = this.row * blockSize + blockSize/2;
+              ctx.fillStyle = color;
+              circle(centerX, centerY, blockSize/2);
+          };
+
+          // equal method for blocks (there's can be everything)
+          block.prototype.equal = function (otherBlock) {
+            return this.col === otherBlock.col && this.row === otherBlock.row;
+          };
+
+          // apple constructor with his random coordinates and size
+          function apple(){
+              this.position = new block(10, 10);
+              this.size = blockSize;
+          }
+
+          //snake constructor with main charasteristics
+          function snake(){
+            this.speed = blockSize;
+            this.segments = [
+              new block(3, 6),
+              new block(4, 6),
+              new block(5, 6)
+            ]
+            this.direction = "right";
+            this.nextDirection = "right";
+          }
+
+          //drawing an apple in random point
+          apple.prototype.draw = function () {
+              this.position.drawCircle("LimeGreen")
+          };
+
+          //moving an apple if snake eating it
+          apple.prototype.move = function () {
+            truePos = false;
+            do{
+              var randomCol = Math.floor(Math.random() * (widthInBlocks - 2)) + 1;
+              var randomRow = Math.floor(Math.random() * (heightInBlocks - 2)) + 1;
+              for(let i = 0; i< snake.segments.length; i++){
+                if(randomCol === snake.segments[i].col && randomRow === snake.segments[i].row){
+                  truePos = true;
+                }
+              }
+            } while (!truePos)
+            this.position = new block(randomCol, randomRow);
+          };
+
+          //drawing the snake prototype
+          snake.prototype.draw = function () {
+            this.segments[0].drawSquare("DarkYellow");
+            for(var i = 1; i < this.segments.length-1; i++){
+              if(i % 2 === 0){
+                this.segments[i].drawSquare("Yellow");
+              }else {
+                this.segments[i].drawSquare("Black");
+              }
+            }
+            this.segments[this.segments.length-1].drawSquare("DarkRed");
+          };
+
+          //moving the snake prototype
+          snake.prototype.move = function () {
+            var head = this.segments[0];
+            var newHead;
+
+            this.direction =  this.nextDirection;
+
+            if(this.nextDirection === "right"){
+              newHead = new block(head.col+1, head.row);
+            } else if (this.nextDirection === "down") {
+              newHead = new block(head.col, head.row+1);
+            }else if (this.nextDirection === "left") {
+              newHead = new block(head.col-1, head.row);
+            } else if (this.direction === "up") {
+              newHead = new block(head.col, head.row-1);
+            }
+
+            if(this.checkCollision(newHead)){
+              gameOver();
+              return;
+            }
+
+            this.segments.unshift(newHead);
+
+            if(newHead.equal(apple.position)){
+              score++;
+              apple.move();
+            } else{
+              this.segments.pop();
+            }
+          };
+
+          //snake new direction setting prototype
+          snake.prototype.setDirection = function (newDirection) {
+            if(this.direction === "up" && newDirection === "down"){
+              return;
+            } else if (this.direction === "down" && newDirection === "up") {
+              return;
+            } else if (this.direction === "right" && newDirection === "left") {
+              return;
+            } else if (this.direction === "left" && newDirection === "right") {
+              return
+            }
+
+            this.nextDirection = newDirection;
+          };
+
+          //cheking snake for Collisions (walls and tail) prototype
+          snake.prototype.checkCollision = function (head) {
+            //cheking for wall Collisions
+            var leftWallCollision = (head.col === 0);
+            var rightWallCollision = (head.col === widthInBlocks - 1);
+            var topWallCollision = (head.row === 0);
+            var bottomWallCollision = (head.row === heightInBlocks - 1);
+            var wallCollision = leftWallCollision || rightWallCollision ||
+            topWallCollision || bottomWallCollision;
+
+            //checking for selfCollision
+            var selfCollision = false;
+            for(let i = 0; i<this.segments.length; i++){
+              selfCollision = head.equal(this.segments[i])
+            }
+            return selfCollision || wallCollision;
+          };
+
+          //snake control via keyboard
+          $("body").keydown(function(event){
+            var newDirection = directions[event.keyCode];
+            if (newDirection !== undefined){
+              snake.setDirection(newDirection);
+            }
+          })
+
+          var snake = new snake();
+          var apple = new apple();
+          //there's everything happening!
+          var intervalId = setInterval(function(){
+            ctx.clearRect(0, 0, width, height);
+            drawScore();
+            snake.move();
+            snake.draw();
+            apple.draw();
+            drawBorder();
+            let g = 0;
+          }, 100);
+        </script>
+    </body>
+</html>
